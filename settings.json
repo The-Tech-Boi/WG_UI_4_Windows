@@ -1,0 +1,5 @@
+{
+    "wg_path": "C:\\Program Files\\WireGuard\\wireguard.exe",
+    "conf_path": "C:\\Program Files\\WireGuard\\Data\\Configurations\\wg0.conf",
+    "interface_name": "wg0"
+}

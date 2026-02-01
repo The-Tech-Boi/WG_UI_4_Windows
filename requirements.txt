@@ -1,0 +1,5 @@
+customtkinter
+qrcode[pil]
+pillow
+pywin32
+pyinstaller
