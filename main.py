@@ -157,6 +157,10 @@ class App(ctk.CTk):
             dialog.destroy()
             self.show_clients_view()
 
+            # Prompt to restart service
+            if messagebox.askyesno("Apply Changes", "Client added successfully. Would you like to restart the WireGuard service now to apply changes?"):
+                self.service_action("restart")
+
         ctk.CTkButton(dialog, text="Generate & Save", command=save).pack(pady=20)
 
     def show_new_client_info(self, name, priv_key, ip, interface_data):

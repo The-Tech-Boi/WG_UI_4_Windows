@@ -6,18 +6,43 @@ import shutil
 import time
 
 class WireGuardManager:
-    def __init__(self, settings_path="settings.json"):
-        self.settings_path = settings_path
+    def __init__(self, app_name="WireGuardManager"):
+        self.app_name = app_name
+        self.app_data_dir = os.path.join(os.getenv('LOCALAPPDATA'), self.app_name)
+        self.settings_path = os.path.join(self.app_data_dir, "settings.json")
+        self.legacy_settings_path = "settings.json"
+        
+        # Ensure AppData directory exists
+        if not os.path.exists(self.app_data_dir):
+            os.makedirs(self.app_data_dir)
+            
+        # Migrate if needed
+        self.migrate_settings()
+        
         self.settings = self.load_settings()
         
+    def migrate_settings(self):
+        # If legacy file exists but new one doesn't, migrate
+        if os.path.exists(self.legacy_settings_path) and not os.path.exists(self.settings_path):
+            try:
+                shutil.copy2(self.legacy_settings_path, self.settings_path)
+                print(f"Migrated settings from {self.legacy_settings_path} to {self.settings_path}")
+                # We leave the legacy file there for safety, but app uses the new one
+            except Exception as e:
+                print(f"Migration error: {e}")
+
     def load_settings(self):
         if os.path.exists(self.settings_path):
-            with open(self.settings_path, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.settings_path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
         return {
             "wg_path": "C:\\Program Files\\WireGuard\\wireguard.exe",
             "conf_path": "C:\\Program Files\\WireGuard\\Data\\Configurations\\wg0.conf",
-            "interface_name": "wg0"
+            "interface_name": "wg0",
+            "endpoint": "YOUR_SERVER_IP:51820"
         }
 
     def save_settings(self, settings):
@@ -72,12 +97,25 @@ class WireGuardManager:
     def write_config(self, interface_data, peers):
         conf_path = self.settings.get("conf_path")
         
-        lines = ["[Interface]"]
-        if 'name' in interface_data:
-            lines.append(f"# Name: {interface_data['name']}")
+        # To preserve formatting, we'll read the existing file
+        # and only append new peers if they don't exist.
+        # For simplicity and to ensure '# Name:' comments are handled,
+        # we will rebuild the config but try to be cleaner.
         
+        lines = ["[Interface]"]
+        if 'PrivateKey' in interface_data:
+            lines.append(f"PrivateKey = {interface_data['PrivateKey']}")
+        if 'Address' in interface_data:
+            lines.append(f"Address = {interface_data['Address']}")
+        if 'ListenPort' in interface_data:
+            lines.append(f"ListenPort = {interface_data['ListenPort']}")
+        if 'DNS' in interface_data:
+            lines.append(f"DNS = {interface_data['DNS']}")
+        
+        # Add any other keys from interface_data
+        known_keys = ['PrivateKey', 'Address', 'ListenPort', 'DNS', 'name']
         for k, v in interface_data.items():
-            if k != 'name':
+            if k not in known_keys:
                 lines.append(f"{k} = {v}")
         
         for peer in peers:
@@ -103,8 +141,9 @@ class WireGuardManager:
              wg_exe = os.path.join(os.path.dirname(self.settings.get("wg_path")), "wg.exe")
 
         try:
-            priv_key = subprocess.check_output([wg_exe, "genkey"], shell=True).decode().strip()
-            pub_key = subprocess.check_output([wg_exe, "pubkey"], input=priv_key.encode(), shell=True).decode().strip()
+            # shell=False is safer
+            priv_key = subprocess.check_output([wg_exe, "genkey"], shell=False).decode().strip()
+            pub_key = subprocess.check_output([wg_exe, "pubkey"], input=priv_key.encode(), shell=False).decode().strip()
             return priv_key, pub_key
         except Exception as e:
             print(f"Error generating keys: {e}")
@@ -116,7 +155,7 @@ class WireGuardManager:
              wg_exe = os.path.join(os.path.dirname(self.settings.get("wg_path")), "wg.exe")
         
         try:
-            pub_key = subprocess.check_output([wg_exe, "pubkey"], input=private_key.encode(), shell=True).decode().strip()
+            pub_key = subprocess.check_output([wg_exe, "pubkey"], input=private_key.encode(), shell=False).decode().strip()
             return pub_key
         except Exception as e:
             print(f"Error deriving public key: {e}")
@@ -152,7 +191,7 @@ class WireGuardManager:
         interface = self.settings.get("interface_name", "wg0")
         service_name = f"WireGuardTunnel${interface}"
         try:
-            output = subprocess.check_output(["sc", "query", service_name], shell=True).decode()
+            output = subprocess.check_output(["sc", "query", service_name], shell=False).decode()
             if "RUNNING" in output:
                 return "Running"
             if "STOPPED" in output:

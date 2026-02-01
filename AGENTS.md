@@ -2,7 +2,7 @@
 
 ## Project Context
 - **Goal**: Create a standalone .exe using PyInstaller.
-- **Current Status**: Standalone build implemented; QR fix deployed; Service restart logic robustified (added wait loop).
+- **Current Status**: Maintenance and Reliability phase completed. Settings moved to AppData, config parser improved, restart prompt added. MIT License added and synced to GitHub.
 - **Tech**: CustomTkinter, Python, WG CLI.
 - **Requirement**: Make WireGuard path and config path configurable (Open Source friendly).
 - **Current Status**: Project structure initialized, requirements and settings created.

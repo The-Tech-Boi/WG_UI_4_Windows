@@ -23,6 +23,7 @@ def build():
         f"--add-data={ctk_path};customtkinter",
         "--uac-admin",
         "--name=WireGuardManager",
+        "--clean", # Clean cache before building
         "main.py"
     ]
     
