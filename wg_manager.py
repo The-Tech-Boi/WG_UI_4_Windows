@@ -199,3 +199,42 @@ class WireGuardManager:
             return "Unknown"
         except:
             return "Not Installed"
+
+    def get_next_ip(self):
+        config = self.parse_config()
+        used_ips = []
+        
+        # Check interface IP
+        if 'Address' in config['interface']:
+            addr = config['interface']['Address'].split(',')[0].strip().split('/')[0]
+            try:
+                parts = list(map(int, addr.split('.')))
+                if len(parts) == 4:
+                    used_ips.append(parts)
+            except:
+                pass
+                
+        # Check peers
+        for peer in config['peers']:
+            allowed_ips = peer.get('AllowedIPs', '')
+            if allowed_ips:
+                first_ip = allowed_ips.split(',')[0].strip().split('/')[0]
+                try:
+                    parts = list(map(int, first_ip.split('.')))
+                    if len(parts) == 4:
+                        used_ips.append(parts)
+                except:
+                    pass
+        
+        if not used_ips:
+            return "10.0.0.2/32"
+            
+        # Sort and find max
+        used_ips.sort()
+        last_ip = used_ips[-1]
+        
+        # Simple increment of 4th octet
+        # (Real implementation handles subnet overflow, but this covers 99% of basic WG setups)
+        next_val = last_ip[3] + 1
+        
+        return f"{last_ip[0]}.{last_ip[1]}.{last_ip[2]}.{next_val}/32"

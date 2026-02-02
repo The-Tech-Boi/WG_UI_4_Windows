@@ -114,6 +114,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(peer_frame, text=f"{pubkey[:20]}...", width=200).pack(side="left", padx=10)
             
             ctk.CTkButton(peer_frame, text="QR", width=50, command=lambda p=peer: self.show_qr(p)).pack(side="right", padx=5)
+            ctk.CTkButton(peer_frame, text="Edit", width=50, command=lambda p=peer: self.edit_client_dialog(p)).pack(side="right", padx=5)
             ctk.CTkButton(peer_frame, text="Delete", width=50, fg_color="#c0392b", command=lambda p=peer: self.delete_client(p)).pack(side="right", padx=5)
 
     def add_client_dialog(self):
@@ -128,7 +129,8 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(dialog, text="Allowed IP (e.g. 10.0.0.2/32):").pack(pady=(10, 0))
         ip_entry = ctk.CTkEntry(dialog, width=250)
-        ip_entry.insert(0, "10.0.0.2/32")
+        next_ip = self.manager.get_next_ip()
+        ip_entry.insert(0, next_ip)
         ip_entry.pack(pady=5)
 
         def save():
@@ -208,6 +210,37 @@ class App(ctk.CTk):
             config_data['peers'] = [p for p in config_data['peers'] if p.get('PublicKey') != peer.get('PublicKey')]
             self.manager.write_config(config_data['interface'], config_data['peers'])
             self.show_clients_view()
+
+    def edit_client_dialog(self, peer):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Edit Client")
+        dialog.geometry("400x200")
+        dialog.attributes("-topmost", True)
+
+        ctk.CTkLabel(dialog, text="Client Name:").pack(pady=(20, 0))
+        name_entry = ctk.CTkEntry(dialog, width=250)
+        name_entry.insert(0, peer.get('name', ''))
+        name_entry.pack(pady=5)
+
+        def save():
+            new_name = name_entry.get()
+            if not new_name:
+                messagebox.showerror("Error", "Name is required")
+                return
+            
+            # Update name
+            config_data = self.manager.parse_config()
+            # Find the peer to update. We rely on PublicKey as unique ID.
+            for p in config_data['peers']:
+                if p.get('PublicKey') == peer.get('PublicKey'):
+                    p['name'] = new_name
+                    break
+            
+            self.manager.write_config(config_data['interface'], config_data['peers'])
+            dialog.destroy()
+            self.show_clients_view()
+            
+        ctk.CTkButton(dialog, text="Save", command=save).pack(pady=20)
 
     def show_settings_view(self):
         self.clear_view()

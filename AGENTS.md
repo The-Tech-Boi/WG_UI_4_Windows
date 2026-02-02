@@ -6,3 +6,4 @@
 - **Tech**: CustomTkinter, Python, WG CLI.
 - **Requirement**: Make WireGuard path and config path configurable (Open Source friendly).
 - **Current Status**: Project structure initialized, requirements and settings created.
+- **Current Status**: auto-increment IP and Edit Client Name implemented. Ready for build.
