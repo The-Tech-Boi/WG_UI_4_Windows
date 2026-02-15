@@ -199,6 +199,21 @@ class App(ctk.CTk):
         qr_label = ctk.CTkLabel(info_win, text="", image=ctk_image)
         qr_label.pack(pady=10)
 
+        def download_conf():
+            try:
+                desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+                filename = f"{name.replace(' ', '_')}.conf"
+                filepath = os.path.join(desktop, filename)
+                
+                with open(filepath, 'w') as f:
+                    f.write(client_conf)
+                
+                messagebox.showinfo("Success", f"Configuration saved to Desktop as {filename}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save configuration: {e}")
+
+        ctk.CTkButton(info_win, text="Download Configuration (.conf)", command=download_conf, fg_color="#27ae60").pack(pady=10)
+
     def show_qr(self, peer):
         # This would need the private key which we don't store for security
         # But for this manager, we can provide a way to rebuild if known or just show public info
@@ -268,12 +283,18 @@ class App(ctk.CTk):
         endpoint_entry.grid(row=2, column=1, padx=10, pady=10)
         endpoint_entry.insert(0, self.manager.settings.get("endpoint", "YOUR_SERVER_IP:51820"))
 
+        # Interface Name
+        ctk.CTkLabel(settings_frame, text="Interface Name:").grid(row=3, column=0, padx=10, pady=10, sticky="e")
+        interface_entry = ctk.CTkEntry(settings_frame, width=400)
+        interface_entry.grid(row=3, column=1, padx=10, pady=10)
+        interface_entry.insert(0, self.manager.settings.get("interface_name", "wg0"))
+
         def save_settings():
             new_settings = {
                 "wg_path": wg_path_entry.get(),
                 "conf_path": conf_path_entry.get(),
                 "endpoint": endpoint_entry.get(),
-                "interface_name": self.manager.settings.get("interface_name", "wg0")
+                "interface_name": interface_entry.get()
             }
             self.manager.save_settings(new_settings)
             messagebox.showinfo("Success", "Settings saved.")
