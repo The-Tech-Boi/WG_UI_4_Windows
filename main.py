@@ -7,6 +7,18 @@ from PIL import Image
 import os
 import io
 import ctypes
+import sys
+import time
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 def is_admin():
     try:
@@ -24,6 +36,13 @@ class App(ctk.CTk):
         # Set appearance
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
+
+        try:
+            icon_p = resource_path("icon.ico")
+            if os.path.exists(icon_p):
+                self.iconbitmap(icon_p)
+        except:
+            pass
 
         if not is_admin():
             messagebox.showwarning("Admin Required", "This application requires Administrator privileges to manage WireGuard services and configurations. Some features may not work as expected.")
@@ -48,8 +67,11 @@ class App(ctk.CTk):
         self.clients_button = ctk.CTkButton(self.sidebar_frame, text="Clients", command=self.show_clients_view)
         self.clients_button.grid(row=2, column=0, padx=20, pady=10)
 
+        self.monitor_button = ctk.CTkButton(self.sidebar_frame, text="Monitor", command=self.show_monitor_view)
+        self.monitor_button.grid(row=3, column=0, padx=20, pady=10)
+
         self.settings_button = ctk.CTkButton(self.sidebar_frame, text="Settings", command=self.show_settings_view)
-        self.settings_button.grid(row=3, column=0, padx=20, pady=10)
+        self.settings_button.grid(row=4, column=0, padx=20, pady=10)
 
         # Main Content Area
         self.main_content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -87,6 +109,104 @@ class App(ctk.CTk):
         else:
             messagebox.showerror("Error", f"Failed to {action} service. Make sure you are running as Admin.")
         self.show_status_view()
+
+    def show_monitor_view(self):
+        self.clear_view()
+        
+        top_frame = ctk.CTkFrame(self.main_content, fg_color="transparent")
+        top_frame.pack(fill="x", pady=(0, 20))
+        
+        ctk.CTkLabel(top_frame, text="Live Monitor", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
+        
+        right_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        right_frame.pack(side="right")
+        
+        if not hasattr(self, 'auto_refresh_var'):
+            self.auto_refresh_var = ctk.BooleanVar(value=False)
+            
+        self.auto_refresh_switch = ctk.CTkSwitch(right_frame, text="Auto-Refresh (5s)", variable=self.auto_refresh_var, command=self.toggle_auto_refresh)
+        self.auto_refresh_switch.pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(right_frame, text="Refresh", command=self.refresh_monitor_data).pack(side="left")
+
+        self.monitor_scrollable_frame = ctk.CTkScrollableFrame(self.main_content)
+        self.monitor_scrollable_frame.pack(fill="both", expand=True)
+
+        self.refresh_monitor_data()
+
+    def toggle_auto_refresh(self):
+        if self.auto_refresh_var.get():
+            self.refresh_monitor_data()
+
+    def refresh_monitor_data(self):
+        if not hasattr(self, 'monitor_scrollable_frame') or not self.monitor_scrollable_frame.winfo_exists():
+            return
+            
+        for widget in self.monitor_scrollable_frame.winfo_children():
+            widget.destroy()
+
+        dump_data = self.manager.get_wg_show_dump()
+        if dump_data is None:
+            ctk.CTkLabel(self.monitor_scrollable_frame, text="Could not retrieve WireGuard data.\nIs the service running and is WireGuard in your PATH?").pack(pady=20)
+        elif not dump_data:
+            ctk.CTkLabel(self.monitor_scrollable_frame, text="No active connections or peers found.").pack(pady=20)
+        else:
+            config_data = self.manager.parse_config()
+            peers_conf = {p.get('PublicKey', ''): p.get('name', 'Unknown') for p in config_data['peers']}
+
+            for peer in dump_data:
+                pubkey = peer['public_key']
+                name = peers_conf.get(pubkey, "Unknown Client")
+                endpoint = peer['endpoint'] if peer['endpoint'] != '(none)' else 'Disconnected'
+                handshake = peer['latest_handshake']
+                rx = peer['transfer_rx']
+                tx = peer['transfer_tx']
+
+                # Format handshake
+                if handshake == 0:
+                    handshake_str = "Never"
+                else:
+                    diff = int(time.time()) - handshake
+                    if diff < 60:
+                        handshake_str = f"{diff} sec ago"
+                    elif diff < 3600:
+                        handshake_str = f"{diff // 60} min ago"
+                    elif diff < 86400:
+                        handshake_str = f"{diff // 3600} hr ago"
+                    else:
+                        handshake_str = f"{diff // 86400} days ago"
+
+                # Format transfer
+                def format_bytes(b):
+                    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                        if b < 1024.0:
+                            return f"{b:.2f} {unit}"
+                        b /= 1024.0
+                    return f"{b:.2f} PB"
+
+                rx_str = format_bytes(rx)
+                tx_str = format_bytes(tx)
+
+                card = ctk.CTkFrame(self.monitor_scrollable_frame)
+                card.pack(fill="x", pady=5, padx=5)
+
+                # Row 1: Name and Endpoint
+                row1 = ctk.CTkFrame(card, fg_color="transparent")
+                row1.pack(fill="x", padx=10, pady=(10, 5))
+                ctk.CTkLabel(row1, text=name, font=ctk.CTkFont(weight="bold", size=16)).pack(side="left")
+                ctk.CTkLabel(row1, text=f"Endpoint: {endpoint}", text_color="gray").pack(side="right")
+
+                # Row 2: Stats
+                row2 = ctk.CTkFrame(card, fg_color="transparent")
+                row2.pack(fill="x", padx=10, pady=(5, 10))
+                ctk.CTkLabel(row2, text=f"Rx: {rx_str} | Tx: {tx_str}").pack(side="left")
+                ctk.CTkLabel(row2, text=f"Handshake: {handshake_str}").pack(side="right")
+                
+                # pubkey truncated
+                ctk.CTkLabel(row2, text=f" ({pubkey[:8]}...)", text_color="gray").pack(side="left", padx=5)
+
+        if self.auto_refresh_var.get():
+            self.monitor_scrollable_frame.after(5000, self.refresh_monitor_data)
 
     def show_clients_view(self):
         self.clear_view()

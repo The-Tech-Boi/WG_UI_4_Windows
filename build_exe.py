@@ -21,8 +21,10 @@ def build():
         "--noconsole",
         "--onefile",
         f"--add-data={ctk_path};customtkinter",
+        "--add-data=icon.ico;.",
         "--uac-admin",
         "--name=WireGuardManager",
+        "--icon=icon.ico",
         "--clean", # Clean cache before building
         "main.py"
     ]

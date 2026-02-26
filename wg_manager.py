@@ -238,3 +238,31 @@ class WireGuardManager:
         next_val = last_ip[3] + 1
         
         return f"{last_ip[0]}.{last_ip[1]}.{last_ip[2]}.{next_val}/32"
+
+    def get_wg_show_dump(self):
+        interface = self.settings.get("interface_name", "wg0")
+        wg_exe = self.settings.get("wg_path", "C:\\Program Files\\WireGuard\\wireguard.exe").replace("wireguard.exe", "wg.exe")
+        if not os.path.exists(wg_exe):
+             wg_exe = os.path.join(os.path.dirname(self.settings.get("wg_path", "C:\\Program Files\\WireGuard\\wireguard.exe")), "wg.exe")
+
+        try:
+            output = subprocess.check_output([wg_exe, "show", interface, "dump"], shell=False).decode('utf-8')
+            lines = output.strip().split('\n')
+            peers = []
+            for line in lines[1:]: # skip first line which is interface
+                parts = line.split('\t')
+                if len(parts) >= 8:
+                    peers.append({
+                        "public_key": parts[0],
+                        "preshared_key": parts[1],
+                        "endpoint": parts[2],
+                        "allowed_ips": parts[3],
+                        "latest_handshake": int(parts[4]),
+                        "transfer_rx": int(parts[5]),
+                        "transfer_tx": int(parts[6]),
+                        "persistent_keepalive": parts[7]
+                    })
+            return peers
+        except Exception as e:
+            print(f"Error running wg show: {e}")
+            return None

@@ -13,3 +13,7 @@
 - **Current Status**: UI Theme specification created in `docs/THEME.md`.
 - **Planned**: Researching WireGuard embedding (wireguard-nt) for true standalone functionality.
 - **Current Status**: Added "Interface Name" setting to support existing GUI installations; Rebuilding.
+- **Client Storage**: Peers/Clients are saved directly in the WireGuard `.conf` file. Names are preserved via `# Name: ` comments. Application configuration is in `%LOCALAPPDATA%\WireGuardManager\settings.json`.
+- **Current Status**: Implemented "Live Monitor" feature. It parses `wg show <interface> dump` to track realtime statistics (Rx/Tx, handshake time, endpoints) and maps IP/Public Keys back to Usernames. Also generated and applied a custom app icon.
+- **Current Status**: Updated `build_exe.py` to include the new custom icon and started a fresh PyInstaller build for `dist/WireGuardManager.exe`.
+- **Bug Fix**: Fixed "blue square" icon issue in bundled EXE by using `sys._MEIPASS` path resolution and correctly bundling `icon.ico` with `--add-data`. 
